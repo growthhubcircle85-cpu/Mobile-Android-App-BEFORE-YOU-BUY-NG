@@ -1,0 +1,6 @@
+{
+  "name": "Before You Buy NG",
+  "description": "A calm, editorial-style property guidance app for Nigerians and diaspora buyers to make more careful decisions before paying.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
