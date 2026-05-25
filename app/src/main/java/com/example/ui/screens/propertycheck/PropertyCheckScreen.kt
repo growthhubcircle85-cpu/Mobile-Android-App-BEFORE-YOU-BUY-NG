@@ -1,6 +1,7 @@
 package com.example.ui.screens.propertycheck
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,38 +23,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.staticcontent.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.staticcontent.Questionnaire
+import com.example.domain.guidance.generateGuidanceResult
 import com.example.ui.components.*
 import com.example.ui.theme.*
 
 @Composable
 fun PropertyCheckScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: PropertyCheckViewModel = viewModel()
 ) {
-    var currentStepIndex by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPropertyType by rememberSaveable { mutableStateOf("") }
-    var selectedLocation by rememberSaveable { mutableStateOf("") }
-    var selectedSellerType by rememberSaveable { mutableStateOf("") }
-    var selectedDocs by rememberSaveable { mutableStateOf(emptySet<String>()) }
-    var selectedAbroad by rememberSaveable { mutableStateOf("") }
-    var selectedPressure by rememberSaveable { mutableStateOf("") }
-
-    var showResult by rememberSaveable { mutableStateOf(false) }
-
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
-    // Trigger calculation
-    val resultReport = remember(showResult, selectedPropertyType, selectedLocation, selectedSellerType, selectedDocs, selectedAbroad, selectedPressure) {
-        if (showResult) {
-            val selections = PropertyCheckSelections(
-                propertyType = selectedPropertyType,
-                location = selectedLocation,
-                sellerType = selectedSellerType,
-                availableDocs = selectedDocs,
-                buyingFromAbroad = selectedAbroad,
-                extremePressure = selectedPressure
-            )
-            GuidanceEvaluator.evaluate(selections)
+    // Generate Guidance Result from our decoupled domain layer when user is on step 6 and hits "Generate Advice"
+    val resultReport = remember(uiState.showResult, uiState) {
+        if (uiState.showResult) {
+            generateGuidanceResult(uiState)
         } else {
             null
         }
@@ -70,7 +57,7 @@ fun PropertyCheckScreen(
         // Masthead
         EditorialMasthead()
 
-        if (!showResult) {
+        if (!uiState.showResult) {
             // STEPPERS
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -96,7 +83,7 @@ fun PropertyCheckScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Start Your Property Journey",
+                            text = "Start Your Property Check",
                             style = MaterialTheme.typography.headlineLarge,
                             color = LightText
                         )
@@ -112,93 +99,102 @@ fun PropertyCheckScreen(
 
                 // Step Tracker Indicator
                 StepProgressIndicator(
-                    currentStep = currentStepIndex,
+                    currentStep = uiState.currentStep,
                     totalSteps = 6
                 )
 
-                // Current Step Card Options
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceCharcoal),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        val activeStep = Questionnaire.steps[currentStepIndex - 1]
-
-                        // Question Title
-                        Text(
-                            text = activeStep.questionTitle,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = LightText,
-                            fontWeight = FontWeight.Bold
-                        )
-                        // Question Description
-                        Text(
-                            text = activeStep.supportingText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = LightText.copy(alpha = 0.6f),
-                            lineHeight = 18.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Render options
-                        if (activeStep.isCheckbox) {
-                            // Question 4 is multiple selection checkboxes
-                            activeStep.options.forEach { option ->
-                                val isChecked = selectedDocs.contains(option)
-                                CheckboxOption(
-                                    text = option,
-                                    isChecked = isChecked,
-                                    testTag = "option_doc_${option.replace(" ", "_").replace("’", "").lowercase()}",
-                                    onCheckedChange = { checked ->
-                                        if (option == "None / Not Sure") {
-                                            selectedDocs = if (checked) setOf("None / Not Sure") else emptySet()
-                                        } else {
-                                            var newSet = selectedDocs.minus("None / Not Sure")
-                                            newSet = if (checked) newSet.plus(option) else newSet.minus(option)
-                                            selectedDocs = newSet
-                                        }
-                                    }
-                                )
-                            }
+                // Animated step container displaying option cards
+                AnimatedContent(
+                    targetState = uiState.currentStep,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally(animationSpec = tween(320)) { width -> width } + fadeIn(animationSpec = tween(320))).togetherWith(
+                                slideOutHorizontally(animationSpec = tween(320)) { width -> -width } + fadeOut(animationSpec = tween(320))
+                            )
                         } else {
-                            // Single Radio buttons styles
-                            activeStep.options.forEach { option ->
-                                val isSelected = when (currentStepIndex) {
-                                    1 -> selectedPropertyType == option
-                                    2 -> selectedLocation == option
-                                    3 -> selectedSellerType == option
-                                    5 -> selectedAbroad == option
-                                    6 -> selectedPressure == option
-                                    else -> false
-                                }
+                            (slideInHorizontally(animationSpec = tween(320)) { width -> -width } + fadeIn(animationSpec = tween(320))).togetherWith(
+                                slideOutHorizontally(animationSpec = tween(320)) { width -> width } + fadeOut(animationSpec = tween(320))
+                            )
+                        }.using(SizeTransform(clip = false))
+                    },
+                    label = "property_check_wizard"
+                ) { step ->
+                    val activeStep = Questionnaire.steps[step - 1]
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceCharcoal),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Question Title
+                            Text(
+                                text = activeStep.questionTitle,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = LightText,
+                                fontWeight = FontWeight.Bold
+                            )
+                            // Question Description
+                            Text(
+                                text = activeStep.supportingText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = LightText.copy(alpha = 0.6f),
+                                lineHeight = 18.sp
+                            )
 
-                                OptionButton(
-                                    text = option,
-                                    isSelected = isSelected,
-                                    testTag = "option_step_${currentStepIndex}_$option",
-                                    onClick = {
-                                        when (currentStepIndex) {
-                                            1 -> selectedPropertyType = option
-                                            2 -> selectedLocation = option
-                                            3 -> selectedSellerType = option
-                                            5 -> selectedAbroad = option
-                                            6 -> selectedPressure = option
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            // Render options based on configuration
+                            if (activeStep.isCheckbox) {
+                                // Survey Documents check step (Multiple choice check)
+                                activeStep.options.forEach { option ->
+                                    val isChecked = uiState.availableDocuments.contains(option)
+                                    CheckboxOption(
+                                        text = option,
+                                        isChecked = isChecked,
+                                        testTag = "option_doc_${option.replace(" ", "_").replace("’", "").lowercase()}",
+                                        onCheckedChange = { checked ->
+                                            viewModel.toggleDocument(option)
                                         }
+                                    )
+                                }
+                            } else {
+                                // Radio styled selection cards
+                                activeStep.options.forEach { option ->
+                                    val isSelected = when (step) {
+                                        1 -> uiState.selectedPropertyType == option
+                                        2 -> uiState.location == option
+                                        3 -> uiState.sellerType == option
+                                        5 -> (if (option == "Yes") uiState.isDiaspora else if (option == "No") !uiState.isDiaspora else false)
+                                        6 -> (if (option == "Yes") uiState.isUrgentPressure else if (option == "No") !uiState.isUrgentPressure else false)
+                                        else -> false
                                     }
-                                )
+
+                                    OptionButton(
+                                        text = option,
+                                        isSelected = isSelected,
+                                        testTag = "option_step_${step}_$option",
+                                        onClick = {
+                                            when (step) {
+                                                1 -> viewModel.updatePropertyType(option)
+                                                2 -> viewModel.updateLocation(option)
+                                                3 -> viewModel.updateSellerType(option)
+                                                5 -> viewModel.updateIsDiaspora(option == "Yes")
+                                                6 -> viewModel.updateIsUrgentPressure(option == "Yes")
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Step Nav Direction Buttons
+                // Step Navigation Direction Buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -207,9 +203,9 @@ fun PropertyCheckScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Back
-                    if (currentStepIndex > 1) {
+                    if (uiState.currentStep > 1) {
                         OutlinedButton(
-                            onClick = { currentStepIndex-- },
+                            onClick = { viewModel.previousStep() },
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
@@ -230,24 +226,18 @@ fun PropertyCheckScreen(
                     }
 
                     // Next / Calculate
-                    val canProceed = when (currentStepIndex) {
-                        1 -> selectedPropertyType.isNotEmpty()
-                        2 -> selectedLocation.isNotEmpty()
-                        3 -> selectedSellerType.isNotEmpty()
-                        4 -> selectedDocs.isNotEmpty()
-                        5 -> selectedAbroad.isNotEmpty()
-                        6 -> selectedPressure.isNotEmpty()
+                    val canProceed = when (uiState.currentStep) {
+                        1 -> uiState.selectedPropertyType.isNotEmpty()
+                        2 -> uiState.location.isNotEmpty()
+                        3 -> uiState.sellerType.isNotEmpty()
+                        4 -> uiState.availableDocuments.isNotEmpty()
+                        5 -> true // Bool option defaulted
+                        6 -> true
                         else -> false
                     }
 
                     Button(
-                        onClick = {
-                            if (currentStepIndex < 6) {
-                                currentStepIndex++
-                            } else {
-                                showResult = true
-                            }
-                        },
+                        onClick = { viewModel.nextStep() },
                         enabled = canProceed,
                         modifier = Modifier
                             .weight(1.5f)
@@ -264,13 +254,13 @@ fun PropertyCheckScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (currentStepIndex == 6) "Generate Advice" else "Next Step",
+                                text = if (uiState.currentStep == 6) "Generate Advice" else "Next Step",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Icon(
-                                imageVector = if (currentStepIndex == 6) Icons.Default.Summarize else Icons.Default.ArrowForward,
+                                imageVector = if (uiState.currentStep == 6) Icons.Default.Summarize else Icons.Default.ArrowForward,
                                 contentDescription = "Arrow asset icon",
                                 modifier = Modifier.size(18.dp)
                             )
@@ -336,17 +326,7 @@ fun PropertyCheckScreen(
 
                     // Reset CTA Row early
                     Button(
-                        onClick = {
-                            // Back home
-                            currentStepIndex = 1
-                            selectedPropertyType = ""
-                            selectedLocation = ""
-                            selectedSellerType = ""
-                            selectedDocs = emptySet()
-                            selectedAbroad = ""
-                            selectedPressure = ""
-                            showResult = false
-                        },
+                        onClick = { viewModel.reset() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
@@ -371,14 +351,55 @@ fun PropertyCheckScreen(
                         }
                     }
 
-                    // 1. Critical Advisories / Warnings (Red)
+                    // 1. Critical Advisories / Warnings (Red / SoftGold highlight for urgency pressure)
                     if (report.importantWarnings.isNotEmpty()) {
                         SectionHeader(title = "Important Warnings", subtitle = "Critical threats targeting current selections.", lightStyle = true)
                         report.importantWarnings.forEach { alert ->
-                            WarningCard(
-                                title = "Specific Transaction Alert",
-                                description = alert
-                            )
+                            if (alert.startsWith("URGENT PRESSURE ALERT:") || alert.contains("Artificial urgency")) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = SurfaceCharcoal),
+                                    border = BorderStroke(2.dp, SoftGold)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = "Highlight icon",
+                                                tint = SoftGold,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Text(
+                                                text = "Urgency Scrutiny Check",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = SoftGold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = alert,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            lineHeight = 20.sp,
+                                            color = LightText
+                                        )
+                                    }
+                                }
+                            } else {
+                                WarningCard(
+                                    title = "Specific Transaction Alert",
+                                    description = alert
+                                )
+                            }
                         }
                     }
 
@@ -507,16 +528,7 @@ fun PropertyCheckScreen(
 
                     // Final Reset button
                     OutlinedButton(
-                        onClick = {
-                            currentStepIndex = 1
-                            selectedPropertyType = ""
-                            selectedLocation = ""
-                            selectedSellerType = ""
-                            selectedDocs = emptySet()
-                            selectedAbroad = ""
-                            selectedPressure = ""
-                            showResult = false
-                        },
+                        onClick = { viewModel.reset() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)

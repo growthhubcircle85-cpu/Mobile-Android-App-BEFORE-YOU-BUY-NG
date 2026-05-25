@@ -41,18 +41,13 @@ import com.example.ui.components.EditorialMasthead
 import com.example.ui.components.SectionHeader
 import com.example.ui.theme.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RedFlagsScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedFlag by remember { mutableStateOf<RedFlag?>(null) }
     val scrollState = rememberScrollState()
-
-    if (selectedFlag != null) {
-        BackHandler {
-            selectedFlag = null
-        }
-    }
 
     Box(
         modifier = modifier.fillMaxSize()
@@ -178,186 +173,171 @@ fun RedFlagsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Beautiful embedded card overlay instead of Dialog to guarantee zero crashes on early APIs
-        AnimatedVisibility(
-            visible = selectedFlag != null,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-            modifier = Modifier.fillMaxSize()
-        ) {
-            selectedFlag?.let { flag ->
-                // Clean scrim background to block clicks to behind content and dim the background
-                Box(
+        // Beautiful standard Material 3 ModalBottomSheet for focused, state-driven advisory
+        if (selectedFlag != null) {
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = { selectedFlag = null },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surfaceVariant, // Warm Ivory
+                contentColor = DarkText,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = MutedGray.copy(alpha = 0.4f)) },
+                modifier = Modifier.testTag("red_flag_bottom_sheet")
+            ) {
+                val flag = selectedFlag!!
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .clickable(enabled = true, onClick = { selectedFlag = null }),
-                    contentAlignment = Alignment.BottomCenter
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
                 ) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.85f)
-                            .padding(top = 16.dp)
-                            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                            .clickable(enabled = true, onClick = {}), // Swallows touch/clicks within the panel
-                        color = MaterialTheme.colorScheme.surfaceVariant // Warm Ivory
+                    // Title header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState())
-                                .padding(24.dp)
-                        ) {
-                        // Title header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .background(WarningRed, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Warning,
-                                        contentDescription = "Alert",
-                                        tint = LightText,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "HAZARD BRIEFING",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = WarningRed,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
-                            IconButton(
-                                onClick = { selectedFlag = null },
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .testTag("close_hazard_briefing_btn")
+                                    .size(32.dp)
+                                    .background(WarningRed, CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close dialog",
-                                    tint = DarkText,
-                                    modifier = Modifier.size(24.dp)
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Alert",
+                                    tint = LightText,
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "HAZARD BRIEFING",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = WarningRed,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Title
-                        Text(
-                            text = flag.title,
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = DarkText,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = flag.shortSummary,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MutedGreen,
-                            fontFamily = FontFamily.Serif,
-                            lineHeight = 22.sp,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
-                        )
-
-                        HorizontalDivider(color = CardBorder)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Detailed Explanation
-                        Text(
-                            text = "DEVELOPMENT OUTLINE",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MutedGray,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = flag.explanation,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = DarkText,
-                            lineHeight = 22.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Protection Protocol Steps
-                        Text(
-                            text = "CIVIC PROTECTION STEPS",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MutedGreen,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        flag.actionSteps.forEachIndexed { idx, step ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(top = 4.dp, end = 12.dp)
-                                        .size(18.dp)
-                                        .background(MutedGreen, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = (idx + 1).toString(),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = LightText,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Text(
-                                    text = step,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = DarkText,
-                                    lineHeight = 18.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-                        DisclaimerCard(isDarkTheme = false)
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
+                        IconButton(
                             onClick = { selectedFlag = null },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MutedGreen,
-                                contentColor = LightText
-                            ),
-                            shape = RoundedCornerShape(8.dp)
+                                .size(48.dp)
+                                .testTag("close_hazard_briefing_btn")
                         ) {
-                            Text("I Understand • Back to Library", fontWeight = FontWeight.Bold)
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close dialog",
+                                tint = DarkText,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(24.dp))
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Title
+                    Text(
+                        text = flag.title,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = DarkText,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = flag.shortSummary,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MutedGreen,
+                        fontFamily = FontFamily.Serif,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                    )
+
+                    HorizontalDivider(color = CardBorder)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Detailed Explanation
+                    Text(
+                        text = "DEVELOPMENT OUTLINE",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MutedGray,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = flag.explanation,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = DarkText,
+                        lineHeight = 22.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Protection Protocol Steps
+                    Text(
+                        text = "CIVIC PROTECTION STEPS",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MutedGreen,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    flag.actionSteps.forEachIndexed { idx, step ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 4.dp, end = 12.dp)
+                                    .size(18.dp)
+                                    .background(MutedGreen, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = (idx + 1).toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LightText,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = step,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = DarkText,
+                                lineHeight = 18.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    DisclaimerCard(isDarkTheme = false)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { selectedFlag = null },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MutedGreen,
+                            contentColor = LightText
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("I Understand • Back to Library", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
         }
     }
-}
 }

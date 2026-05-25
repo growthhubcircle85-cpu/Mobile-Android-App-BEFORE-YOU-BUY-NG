@@ -75,28 +75,30 @@ fun CivicBackground(
             val width = size.width
             val height = size.height
 
-            // 1. Draw soft architectural grid lines (every 80dp/pixel equiv)
-            val gridSpacing = 160f
-            var x = 0f
-            while (x < width) {
-                drawLine(
-                    color = Color.White.copy(alpha = 0.015f),
-                    start = Offset(x, 0f),
-                    end = Offset(x, height),
-                    strokeWidth = 1f
-                )
-                x += gridSpacing
-            }
+            // 1. Draw soft architectural grid lines (every 80dp spacing)
+            val gridSpacing = 80.dp.toPx()
+            if (gridSpacing > 0f) {
+                var x = 0f
+                while (x < width) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.015f),
+                        start = Offset(x, 0f),
+                        end = Offset(x, height),
+                        strokeWidth = 1f
+                    )
+                    x += gridSpacing
+                }
 
-            var y = 0f
-            while (y < height) {
-                drawLine(
-                    color = Color.White.copy(alpha = 0.015f),
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 1f
-                )
-                y += gridSpacing
+                var y = 0f
+                while (y < height) {
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.015f),
+                        start = Offset(0f, y),
+                        end = Offset(width, y),
+                        strokeWidth = 1f
+                    )
+                    y += gridSpacing
+                }
             }
 
             // 2. Draw survey plan diagnostic lines & boundaries
@@ -196,6 +198,7 @@ fun CivicBackground(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .systemBarsPadding()
         ) {
             content()
         }

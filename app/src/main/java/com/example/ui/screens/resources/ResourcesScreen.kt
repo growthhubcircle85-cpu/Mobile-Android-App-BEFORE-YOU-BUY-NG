@@ -27,6 +27,9 @@ import com.example.ui.components.DisclaimerCard
 import com.example.ui.components.EditorialMasthead
 import com.example.ui.components.ResourceCard
 import com.example.ui.components.SectionHeader
+import androidx.browser.customtabs.CustomTabColorSchemeParams
+import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.ui.graphics.toArgb
 import com.example.ui.theme.*
 
 @Composable
@@ -180,13 +183,22 @@ fun ResourcesScreen(
 }
 
 /**
- * Launches external links securely through an Android implicit browser intent
+ * Launches external links securely through Chrome Custom Tabs styled with native DeepCharcoal
  */
 private fun launchSafeUrlIntent(context: Context, url: String) {
     try {
         val parsedUri = Uri.parse(url)
-        val browserIntent = Intent(Intent.ACTION_VIEW, parsedUri)
-        context.startActivity(browserIntent)
+        val toolbarColor = DeepCharcoal.toArgb()
+        
+        val defaultColors = CustomTabColorSchemeParams.Builder()
+            .setToolbarColor(toolbarColor)
+            .build()
+            
+        val customTabsIntent = CustomTabsIntent.Builder()
+            .setDefaultColorSchemeParams(defaultColors)
+            .build()
+            
+        customTabsIntent.launchUrl(context, parsedUri)
     } catch (e: Exception) {
         Toast.makeText(
             context,
